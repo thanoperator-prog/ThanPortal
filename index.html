@@ -93,7 +93,7 @@
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 selection:bg-blue-500 selection:text-white">
+<body class="bg-slate-900 text-slate-100 selection:bg-blue-500 selection:text-white pb-10">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
@@ -165,10 +165,12 @@
         const BarChart = (props) => ( <IconBase {...props}><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></IconBase> );
         const Settings = (props) => ( <IconBase {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase> );
         const Monitor = (props) => ( <IconBase {...props}><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></IconBase> );
+        const FileText = (props) => ( <IconBase {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></IconBase> );
 
         function App() {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedCategory, setSelectedCategory] = useState('All');
+            const [activeTab, setActiveTab] = useState('website'); // 'website' or 'document'
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
             const [currentEditId, setCurrentEditId] = useState(null);
@@ -182,6 +184,7 @@
             // Icon Configuration
             const iconOptions = [
                 { id: 'General', component: Globe, label: 'General' },
+                { id: 'document', component: FileText, label: 'Document' },
                 { id: 'clipboard', component: ClipboardList, label: 'Tasks' },
                 { id: 'package', component: Package, label: 'Inventory' },
                 { id: 'calendar', component: Calendar, label: 'Calendar' },
@@ -204,7 +207,8 @@
                 url: '',
                 desc: '',
                 category: 'General',
-                iconType: 'General'
+                iconType: 'General',
+                type: 'website' // 'website' or 'document'
             });
 
             // 1. Authentication
@@ -270,7 +274,8 @@
                     url: '', 
                     desc: '', 
                     category: 'General',
-                    iconType: 'General' 
+                    iconType: 'General',
+                    type: activeTab // Default to current tab
                 });
                 setIsEditing(false);
                 setCurrentEditId(null);
@@ -283,7 +288,8 @@
                     url: link.url,
                     desc: link.desc || '',
                     category: link.category,
-                    iconType: link.iconType || 'General'
+                    iconType: link.iconType || 'General',
+                    type: link.type || 'website'
                 });
                 setIsEditing(true);
                 setCurrentEditId(link.id);
@@ -362,9 +368,13 @@
                 }
             };
 
-            const categories = ['All', ...new Set(links.map(link => link.category))];
+            // Filter logic including Tabs
+            const currentTabLinks = links.filter(link => (link.type || 'website') === activeTab);
+            
+            // Get unique categories for current tab only
+            const categories = ['All', ...new Set(currentTabLinks.map(link => link.category))];
 
-            const filteredLinks = links.filter(link => {
+            const filteredLinks = currentTabLinks.filter(link => {
                 const matchesSearch = link.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     (link.desc && link.desc.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchesCategory = selectedCategory === 'All' || link.category === selectedCategory;
@@ -390,13 +400,10 @@
                     <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
                         
                         {/* Header Section */}
-                        <header className="mb-10 md:mb-16 text-center relative group select-none">
+                        <header className="mb-10 text-center relative group select-none">
                             {/* Dynamic Logo Container */}
                             <div className="relative inline-block mb-4 md:mb-6 animate-float">
-                                {/* Glow Effect */}
                                 <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-500"></div>
-                                
-                                {/* Main Logo Box */}
                                 <div className="relative bg-slate-900 rounded-full p-1 ring-1 ring-white/10">
                                     <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-full p-3 md:p-4 relative overflow-hidden">
                                         <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -405,19 +412,44 @@
                                 </div>
                             </div>
 
-                            {/* Dynamic Title */}
                             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-3 md:mb-4 tracking-tight relative z-10">
                                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-gradient-text">
                                     Than Portal
                                 </span>
                             </h1>
 
-                            {/* Subtitle */}
                             <p className="text-slate-400 text-base md:text-xl font-light max-w-lg mx-auto leading-relaxed px-4">
                                 {getGreeting()}! <span className="hidden sm:inline text-slate-500">|</span> <br className="sm:hidden" /> Here is your centralized access point.
                             </p>
                         </header>
 
+                        {/* TABS SELECTION */}
+                        <div className="flex justify-center mb-8">
+                            <div className="bg-slate-800/80 p-1.5 rounded-xl flex gap-2 border border-slate-700/50 shadow-lg relative z-20">
+                                <button
+                                    onClick={() => { setActiveTab('website'); setSelectedCategory('All'); }}
+                                    className={`px-6 py-2.5 rounded-lg font-bold text-sm md:text-base transition-all duration-300 flex items-center gap-2 ${
+                                        activeTab === 'website' 
+                                        ? 'bg-blue-600 text-white shadow-lg ring-1 ring-blue-400/50' 
+                                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    <Globe size={18} /> Websites & Apps
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('document'); setSelectedCategory('All'); }}
+                                    className={`px-6 py-2.5 rounded-lg font-bold text-sm md:text-base transition-all duration-300 flex items-center gap-2 ${
+                                        activeTab === 'document' 
+                                        ? 'bg-emerald-600 text-white shadow-lg ring-1 ring-emerald-400/50' 
+                                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    <FileText size={18} /> Documents
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Controls Section */}
                         <div className="bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 md:p-6 mb-8 md:mb-10 shadow-xl">
                             <div className="flex flex-col lg:flex-row gap-4 md:gap-6 items-center justify-between">
                                 <div className="relative w-full lg:w-1/3 group">
@@ -426,14 +458,14 @@
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Search applications..."
+                                        placeholder={`Search ${activeTab === 'website' ? 'applications' : 'documents'}...`}
                                         className="w-full bg-slate-900/80 border border-slate-700 text-slate-200 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder:text-slate-600"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
                                 </div>
                                 
-                                {/* Category Slider (Horizontal Scroll on Mobile) */}
+                                {/* Category Slider */}
                                 <div className="flex w-full lg:w-auto overflow-x-auto no-scrollbar pb-2 lg:pb-0 gap-2 -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap lg:justify-center">
                                     {categories.map((cat) => (
                                         <button
@@ -455,7 +487,7 @@
                                     className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20 hover:scale-105 whitespace-nowrap w-full lg:w-auto justify-center"
                                 >
                                     <Plus size={20} />
-                                    Add Link
+                                    Add {activeTab === 'website' ? 'Link' : 'Doc'}
                                 </button>
                             </div>
                         </div>
@@ -468,29 +500,11 @@
                                 </h3>
                                 {error === "PERMISSION_ERROR" ? (
                                     <div>
-                                        <p className="mb-4">
-                                            Access Denied. Your database is currently locked. You need to enable "Test Mode" or update your Security Rules in the Firebase Console.
-                                        </p>
+                                        <p className="mb-4">Access Denied. Your database is currently locked. Check Firestore Rules.</p>
                                         <div className="bg-slate-900/80 p-4 rounded-lg border border-slate-700 overflow-x-auto">
-                                            <p className="text-sm text-slate-400 mb-2 font-semibold">
-                                                1. Go to Firebase Console &gt; Firestore Database &gt; Rules
-                                            </p>
-                                            <p className="text-sm text-slate-400 mb-2 font-semibold">
-                                                2. Replace the existing rules with this:
-                                            </p>
                                             <code className="block font-mono text-xs md:text-sm text-emerald-400 whitespace-pre-wrap select-all">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}`}
+{`rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }`}
                                             </code>
-                                            <p className="text-sm text-slate-400 mt-2 font-semibold">
-                                                3. Click "Publish"
-                                            </p>
                                         </div>
                                     </div>
                                 ) : (
@@ -558,17 +572,17 @@ service cloud.firestore {
                                                 </p>
 
                                                 <div className="flex items-center text-blue-400 text-sm font-medium opacity-100 md:opacity-0 transform md:translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 mt-auto">
-                                                    Open Tracker <ExternalLink size={14} className="ml-1" />
+                                                    Open {activeTab === 'website' ? 'Tracker' : 'Document'} <ExternalLink size={14} className="ml-1" />
                                                 </div>
                                             </a>
                                         </div>
                                     ))
                                 ) : (
                                     <div className="col-span-full text-center py-20 bg-slate-800/20 rounded-3xl border border-dashed border-slate-700 px-4">
-                                        <Search size={48} className="mx-auto text-slate-600 mb-4" />
-                                        <h3 className="text-xl font-semibold text-slate-300 mb-2">No applications found</h3>
+                                        {activeTab === 'website' ? <Globe size={48} className="mx-auto text-slate-600 mb-4" /> : <FileText size={48} className="mx-auto text-slate-600 mb-4" />}
+                                        <h3 className="text-xl font-semibold text-slate-300 mb-2">No {activeTab === 'website' ? 'applications' : 'documents'} found</h3>
                                         <p className="text-slate-500">
-                                            {loading ? 'Connecting to database...' : 'Click "Add Link" to start populating your database.'}
+                                            {loading ? 'Connecting to database...' : `Click "Add ${activeTab === 'website' ? 'Link' : 'Doc'}" to start populating your list.`}
                                         </p>
                                     </div>
                                 )}
@@ -587,18 +601,35 @@ service cloud.firestore {
                                     
                                     <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2 pr-8">
                                         {isEditing ? <Edit className="text-blue-500" /> : <Plus className="text-emerald-500" />}
-                                        {isEditing ? 'Edit Application' : 'Add New Application'}
+                                        {isEditing ? 'Edit Item' : 'Add New Item'}
                                     </h2>
                                     
                                     <form onSubmit={handleSave} className="space-y-4">
+                                        {/* TYPE SELECTION */}
+                                        <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                                            <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Item Type</label>
+                                            <div className="flex gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer bg-slate-800 px-3 py-2 rounded-md hover:bg-slate-700 transition-colors flex-1 justify-center border border-slate-700 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500/10">
+                                                    <input type="radio" name="type" value="website" checked={formData.type === 'website'} onChange={(e) => setFormData({...formData, type: 'website'})} className="hidden" />
+                                                    <Globe size={16} className={formData.type === 'website' ? 'text-blue-400' : 'text-slate-500'} />
+                                                    <span className={formData.type === 'website' ? 'text-blue-100 font-bold' : 'text-slate-400'}>Website / App</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer bg-slate-800 px-3 py-2 rounded-md hover:bg-slate-700 transition-colors flex-1 justify-center border border-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-500/10">
+                                                    <input type="radio" name="type" value="document" checked={formData.type === 'document'} onChange={(e) => setFormData({...formData, type: 'document'})} className="hidden" />
+                                                    <FileText size={16} className={formData.type === 'document' ? 'text-emerald-400' : 'text-slate-500'} />
+                                                    <span className={formData.type === 'document' ? 'text-emerald-100 font-bold' : 'text-slate-400'}>Document</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-slate-400 text-sm mb-1">Application Name</label>
+                                                <label className="block text-slate-400 text-sm mb-1">Name</label>
                                                 <input
                                                     type="text"
                                                     required
                                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                                    placeholder="e.g., HR Dashboard"
+                                                    placeholder="e.g., HR Manual"
                                                     value={formData.name}
                                                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                                                 />
@@ -610,7 +641,7 @@ service cloud.firestore {
                                                     type="text"
                                                     required
                                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                                    placeholder="e.g., Admin"
+                                                    placeholder="e.g., Policies"
                                                     value={formData.category}
                                                     onChange={(e) => setFormData({...formData, category: e.target.value})}
                                                 />
@@ -655,7 +686,7 @@ service cloud.firestore {
                                             <label className="block text-slate-400 text-sm mb-1">Description (Optional)</label>
                                             <textarea
                                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none h-24 resize-none"
-                                                placeholder="Short description of what this tool does..."
+                                                placeholder="Short description..."
                                                 value={formData.desc}
                                                 onChange={(e) => setFormData({...formData, desc: e.target.value})}
                                             />
@@ -670,7 +701,7 @@ service cloud.firestore {
                                             }`}
                                         >
                                             <Save size={20} /> 
-                                            {isEditing ? 'Update Application' : 'Save Application'}
+                                            {isEditing ? 'Update' : 'Save'}
                                         </button>
                                     </form>
                                 </div>
