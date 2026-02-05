@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Than Portal</title>
+    <title>Portal ni Than</title>
     
     <!-- App Icon (Globe Favicon) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2360a5fa%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/><path d=%22M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20%22/><path d=%22M2 12h20%22/></svg>">
@@ -91,6 +91,17 @@
                 background-position: 200% center;
             }
         }
+        
+        /* Shake animation for wrong password */
+        .animate-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 selection:bg-blue-500 selection:text-white pb-10">
@@ -166,6 +177,7 @@
         const Settings = (props) => ( <IconBase {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase> );
         const Monitor = (props) => ( <IconBase {...props}><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></IconBase> );
         const FileText = (props) => ( <IconBase {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></IconBase> );
+        const Lock = (props) => ( <IconBase {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></IconBase> );
 
         function App() {
             const [searchTerm, setSearchTerm] = useState('');
@@ -175,6 +187,12 @@
             const [isEditing, setIsEditing] = useState(false);
             const [currentEditId, setCurrentEditId] = useState(null);
             
+            // Password Modal State
+            const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+            const [passwordInput, setPasswordInput] = useState('');
+            const [pendingAction, setPendingAction] = useState(null); // { type: 'SAVE' | 'DELETE', payload: any }
+            const [passwordError, setPasswordError] = useState(false);
+
             // Firebase State
             const [links, setLinks] = useState([]);
             const [user, setUser] = useState(null);
@@ -275,7 +293,7 @@
                     desc: '', 
                     category: 'General',
                     iconType: 'General',
-                    type: activeTab // Default to current tab
+                    type: activeTab 
                 });
                 setIsEditing(false);
                 setCurrentEditId(null);
@@ -296,82 +314,83 @@
                 setIsModalOpen(true);
             };
 
-            // SECURITY: Check Password
-            const verifyAction = () => {
-                const input = prompt("Please enter admin password to proceed:");
-                if (input === ADMIN_PASSWORD) return true;
-                if (input !== null) alert("Incorrect password! Access denied.");
-                return false;
-            };
+            // --- PASSWORD & ACTION HANDLING ---
 
-            // Handle Form Submit (Add or Update) with Firestore
-            const handleSave = async (e) => {
+            // Triggered when user clicks Save/Update in the form
+            const initiateSave = (e) => {
                 e.preventDefault();
                 if (!formData.name || !formData.url) return;
                 
+                setPendingAction({ type: 'SAVE' });
+                setIsPasswordModalOpen(true);
+                setPasswordInput('');
+                setPasswordError(false);
+            };
+
+            // Triggered when user clicks Delete icon
+            const initiateDelete = (id) => {
+                setPendingAction({ type: 'DELETE', payload: id });
+                setIsPasswordModalOpen(true);
+                setPasswordInput('');
+                setPasswordError(false);
+            };
+
+            // Executed after successful password check
+            const performAction = async () => {
                 if (!user) {
                     alert("Not authenticated yet. Please wait.");
                     return;
                 }
 
-                // PASSWORD CHECK
-                if (!verifyAction()) return;
-
                 const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-pink-600', 'bg-amber-600', 'bg-indigo-600', 'bg-cyan-600', 'bg-rose-500'];
-                
-                try {
-                    const linksCollection = collection(db, 'links');
+                const linksCollection = collection(db, 'links');
 
-                    if (isEditing && currentEditId) {
-                        const linkRef = doc(linksCollection, currentEditId);
-                        await updateDoc(linkRef, {
-                            ...formData,
-                            updatedAt: new Date()
-                        });
-                    } else {
-                        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                        await addDoc(linksCollection, {
-                            ...formData,
-                            color: randomColor,
-                            createdAt: new Date()
-                        });
+                try {
+                    if (pendingAction.type === 'SAVE') {
+                        if (isEditing && currentEditId) {
+                            const linkRef = doc(linksCollection, currentEditId);
+                            await updateDoc(linkRef, {
+                                ...formData,
+                                updatedAt: new Date()
+                            });
+                        } else {
+                            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                            await addDoc(linksCollection, {
+                                ...formData,
+                                color: randomColor,
+                                createdAt: new Date()
+                            });
+                        }
+                        setIsModalOpen(false); // Close the form modal
+                    } else if (pendingAction.type === 'DELETE') {
+                        await deleteDoc(doc(linksCollection, pendingAction.payload));
                     }
-                    setIsModalOpen(false);
                 } catch (err) {
-                    console.error("Error saving document: ", err);
+                    console.error("Error executing action: ", err);
                     if (err.code === 'permission-denied' || err.message.includes("permission")) {
                         setError("PERMISSION_ERROR");
-                        setIsModalOpen(false); 
                     } else {
-                        alert("Error saving: " + err.message);
+                        alert("Error: " + err.message);
                     }
                 }
             };
 
-            // Function to delete link from Firestore
-            const handleDeleteLink = async (id) => {
-                if (window.confirm('Are you sure you want to delete this link?')) {
-                    // PASSWORD CHECK
-                    if (!verifyAction()) return;
-
-                    try {
-                        const linksCollection = collection(db, 'links');
-                        await deleteDoc(doc(linksCollection, id));
-                    } catch (err) {
-                        console.error("Error deleting document: ", err);
-                        if (err.code === 'permission-denied' || err.message.includes("permission")) {
-                            setError("PERMISSION_ERROR");
-                        } else {
-                            alert("Error deleting: " + err.message);
-                        }
-                    }
+            // Handle Password Submit
+            const handlePasswordSubmit = (e) => {
+                e.preventDefault();
+                if (passwordInput === ADMIN_PASSWORD) {
+                    performAction();
+                    setIsPasswordModalOpen(false); // Close password modal
+                } else {
+                    setPasswordError(true);
+                    // Reset error animation after a bit
+                    setTimeout(() => setPasswordError(false), 500);
                 }
             };
 
-            // Filter logic including Tabs
+            // --- FILTERING & RENDER ---
+
             const currentTabLinks = links.filter(link => (link.type || 'website') === activeTab);
-            
-            // Get unique categories for current tab only
             const categories = ['All', ...new Set(currentTabLinks.map(link => link.category))];
 
             const filteredLinks = currentTabLinks.filter(link => {
@@ -401,7 +420,6 @@
                         
                         {/* Header Section */}
                         <header className="mb-10 text-center relative group select-none">
-                            {/* Dynamic Logo Container */}
                             <div className="relative inline-block mb-4 md:mb-6 animate-float">
                                 <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-500"></div>
                                 <div className="relative bg-slate-900 rounded-full p-1 ring-1 ring-white/10">
@@ -414,7 +432,7 @@
 
                             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-3 md:mb-4 tracking-tight relative z-10">
                                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-gradient-text">
-                                    Than Portal
+                                    Portal ni Than
                                 </span>
                             </h1>
 
@@ -423,7 +441,7 @@
                             </p>
                         </header>
 
-                        {/* TABS SELECTION */}
+                        {/* TABS */}
                         <div className="flex justify-center mb-8">
                             <div className="bg-slate-800/80 p-1.5 rounded-xl flex gap-2 border border-slate-700/50 shadow-lg relative z-20">
                                 <button
@@ -465,7 +483,6 @@
                                     />
                                 </div>
                                 
-                                {/* Category Slider */}
                                 <div className="flex w-full lg:w-auto overflow-x-auto no-scrollbar pb-2 lg:pb-0 gap-2 -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap lg:justify-center">
                                     {categories.map((cat) => (
                                         <button
@@ -532,7 +549,7 @@
                                                         e.preventDefault();
                                                         handleOpenEdit(link);
                                                     }}
-                                                    className="p-2 text-slate-300 bg-slate-700/80 hover:text-blue-400 hover:bg-slate-700 rounded-lg transition-colors backdrop-blur-sm"
+                                                    className="p-2 text-slate-300 bg-slate-700/80 hover:text-blue-400 hover:bg-slate-700 rounded-lg transition-colors backdrop-blur-sm shadow-sm"
                                                     title="Edit Link"
                                                 >
                                                     <Edit size={18} />
@@ -540,9 +557,9 @@
                                                 <button
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        handleDeleteLink(link.id);
+                                                        initiateDelete(link.id);
                                                     }}
-                                                    className="p-2 text-slate-300 bg-slate-700/80 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors backdrop-blur-sm"
+                                                    className="p-2 text-slate-300 bg-slate-700/80 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors backdrop-blur-sm shadow-sm"
                                                     title="Remove Link"
                                                 >
                                                     <Trash2 size={18} />
@@ -589,12 +606,13 @@
                             </div>
                         )}
 
+                        {/* ADD/EDIT FORM MODAL */}
                         {isModalOpen && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                                <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative animate-fade-in-up max-h-[90vh] overflow-y-auto">
+                            <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in-up">
+                                <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
                                     <button 
                                         onClick={() => setIsModalOpen(false)}
-                                        className="absolute top-4 right-4 text-slate-400 hover:text-white p-2"
+                                        className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 hover:bg-slate-700 rounded-lg transition-colors"
                                     >
                                         <X size={24} />
                                     </button>
@@ -604,7 +622,7 @@
                                         {isEditing ? 'Edit Item' : 'Add New Item'}
                                     </h2>
                                     
-                                    <form onSubmit={handleSave} className="space-y-4">
+                                    <form onSubmit={initiateSave} className="space-y-4">
                                         {/* TYPE SELECTION */}
                                         <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
                                             <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Item Type</label>
@@ -701,7 +719,58 @@
                                             }`}
                                         >
                                             <Save size={20} /> 
-                                            {isEditing ? 'Update' : 'Save'}
+                                            {isEditing ? 'Confirm Update' : 'Save Item'}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PASSWORD MODAL (OVERLAY) */}
+                        {isPasswordModalOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in-up">
+                                <div className={`bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative ${passwordError ? 'animate-shake' : ''}`}>
+                                    <button 
+                                        onClick={() => setIsPasswordModalOpen(false)}
+                                        className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 hover:bg-slate-700 rounded transition-colors"
+                                    >
+                                        <X size={20} />
+                                    </button>
+
+                                    <div className="flex flex-col items-center mb-6">
+                                        <div className="p-3 bg-slate-700 rounded-full mb-3 text-blue-400">
+                                            <Lock size={32} />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white">Admin Access Required</h3>
+                                        <p className="text-slate-400 text-sm mt-1 text-center">
+                                            Please enter the password to {pendingAction?.type === 'DELETE' ? 'delete' : 'save'} this item.
+                                        </p>
+                                    </div>
+
+                                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                                        <div>
+                                            <input
+                                                type="password"
+                                                autoFocus
+                                                required
+                                                className={`w-full bg-slate-900 border ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-blue-500'} rounded-lg px-4 py-3 text-white outline-none focus:ring-2 transition-all text-center tracking-widest text-lg`}
+                                                placeholder="••••••••"
+                                                value={passwordInput}
+                                                onChange={(e) => {
+                                                    setPasswordInput(e.target.value);
+                                                    if(passwordError) setPasswordError(false);
+                                                }}
+                                            />
+                                            {passwordError && (
+                                                <p className="text-red-400 text-xs text-center mt-2 font-semibold">Incorrect password. Please try again.</p>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+                                        >
+                                            Verify & Proceed
                                         </button>
                                     </form>
                                 </div>
